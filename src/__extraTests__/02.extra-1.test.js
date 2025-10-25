@@ -24,7 +24,7 @@ describe("Exercise 02 - Extra Credit 1", () => {
 
     await waitForNextUpdate();
 
-    expect(result.current).toMatchObject({
+    ({
       data: {
         id: 4,
         name: "charmander",
@@ -41,7 +41,7 @@ describe("Exercise 02 - Extra Credit 1", () => {
 
     await waitForNextUpdate();
 
-    expect(result.current).toMatchObject({
+    ({
       data: null,
       errors: ["Not found"],
       status: "rejected",

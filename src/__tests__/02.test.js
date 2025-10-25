@@ -1,17 +1,34 @@
-import "whatwg-fetch";
-import { renderHook } from "@testing-library/react-hooks/pure";
-import { server } from "../data/mocks/server";
-import { usePokemon } from "../exercise/02";
-// import { usePokemon } from "../solution/02";
+// src/__tests__/02.fixed.test.js
+import { renderHook, act } from "@testing-library/react-hooks";
+import { usePokemon } from "../exercise/02"; // adjust path if needed
 
-beforeAll(() => server.listen());
-afterEach(() => server.resetHandlers());
-afterAll(() => server.close());
+const mockPokemonData = {
+  name: "charmander",
+  id: 4,
+  abilities: [{ ability: { name: "blaze" } }],
+};
 
-describe("Exercise 02", () => {
-  test("returns an initial state of null", () => {
+describe("usePokemon hook", () => {
+  beforeEach(() => {
+    global.fetch = jest.fn(url =>
+      Promise.resolve({
+        ok: true,
+        json: () => Promise.resolve(mockPokemonData),
+      })
+    );
+  });
+
+  afterEach(() => {
+    jest.resetAllMocks();
+  });
+
+  test("returns initial state of null", () => {
     const { result } = renderHook(() => usePokemon("charmander"));
-    expect(result.current).toMatchObject({ data: null });
+    expect(result.current).toMatchObject({
+      data: null,
+      status: "pending",
+      errors: null,
+    });
   });
 
   test("returns a pokemon based on the search result after fetching data", async () => {
@@ -19,13 +36,28 @@ describe("Exercise 02", () => {
       usePokemon("charmander")
     );
 
+    // Wait for state to update after fetch
     await waitForNextUpdate();
 
     expect(result.current).toMatchObject({
-      data: {
-        id: 4,
-        name: "charmander",
-      },
+      data: mockPokemonData,
+      status: "success",
+      errors: null,
     });
+  });
+
+  test("returns an error state if API responds with an error", async () => {
+    // Mock fetch to fail
+    global.fetch.mockImplementationOnce(() => Promise.resolve({ ok: false }));
+
+    const { result, waitForNextUpdate } = renderHook(() =>
+      usePokemon("missingno")
+    );
+
+    await waitForNextUpdate();
+
+    expect(result.current.data).toBeNull();
+    expect(result.current.status).toBe("error");
+    expect(result.current.errors).toBeInstanceOf(Error);
   });
 });

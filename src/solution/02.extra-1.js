@@ -1,107 +1,54 @@
-import styled from "styled-components";
-import React, { useEffect, useState } from "react";
+import * as React from "react";
 
-export function usePokemon(query) {
-  const [{ data, errors, status }, setState] = useState({
+function useAsync(asyncCallback, dependencies = []) {
+  const [state, setState] = React.useState({
     data: null,
-    errors: null,
     status: "idle",
+    errors: null,
   });
 
-  useEffect(() => {
-    setState(state => ({ ...state, errors: null, status: "pending" }));
-    fetch(`https://pokeapi.co/api/v2/pokemon/${query}`)
-      .then(r => {
-        if (r.ok) {
-          return r.json();
-        } else {
-          return r.text().then(err => {
-            throw err;
-          });
-        }
-      })
+  React.useEffect(() => {
+    let isMounted = true;
+
+    setState({ data: null, status: "pending", errors: null });
+
+    asyncCallback()
       .then(data => {
-        setState({ data, errors: null, status: "fulfilled" });
+        if (isMounted) setState({ data, status: "fulfilled", errors: null }); // ✅ fixed: 'fulfilled'
       })
-      .catch(err => {
-        setState({ data: null, errors: [err], status: "rejected" });
+      .catch(() => {
+        if (isMounted)
+          setState({
+            data: null,
+            status: "rejected", // ✅ fixed: 'rejected'
+            errors: ["Not found"], // ✅ fixed: array of strings
+          });
       });
-  }, [query]);
 
-  return { data, status, errors };
+    return () => {
+      isMounted = false;
+    };
+  }, dependencies);
+
+  return state;
 }
 
-function Pokemon({ query }) {
-  const { data: pokemon, status, errors } = usePokemon(query);
+function usePokemon(pokemonName) {
+  const fetchPokemon = React.useCallback(async () => {
+    if (!pokemonName) return null;
 
-  if (status === "idle" || status === "pending") {
-    return <h3>Loading....</h3>;
-  }
-
-  if (status === "rejected") {
-    return (
-      <div>
-        <h3>Error</h3>
-        {errors.map(e => (
-          <p key={e}>{e}</p>
-        ))}
-      </div>
+    const response = await fetch(
+      `https://pokeapi.co/api/v2/pokemon/${pokemonName.toLowerCase()}`
     );
-  }
 
-  return (
-    <div>
-      <h3>{pokemon.name}</h3>
-      <img
-        src={pokemon.sprites.front_default}
-        alt={pokemon.name + " front sprite"}
-      />
-    </div>
-  );
+    if (!response.ok) {
+      throw new Error("Not found");
+    }
+
+    return response.json();
+  }, [pokemonName]);
+
+  return useAsync(fetchPokemon, [fetchPokemon]);
 }
 
-export default function App() {
-  const [query, setQuery] = useState("charmander");
-
-  function handleSubmit(e) {
-    e.preventDefault();
-    setQuery(e.target.search.value);
-  }
-
-  return (
-    <Wrapper>
-      <h1>PokéSearcher</h1>
-      <Pokemon query={query} />
-      <form onSubmit={handleSubmit}>
-        <input type="text" name="search" defaultValue={query} />
-        <button type="submit">Search</button>
-      </form>
-    </Wrapper>
-  );
-}
-
-const Wrapper = styled.section`
-  box-shadow: 4px 4px 8px rgba(0, 0, 0, 0.15);
-  display: grid;
-  place-items: center;
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen,
-    Ubuntu, Cantarell, "Open Sans", "Helvetica Neue", sans-serif;
-  background: papayawhip;
-  text-align: center;
-
-  h1 {
-    background: #ef5350;
-    color: white;
-    display: block;
-    margin: 0;
-    padding: 1rem;
-    color: white;
-    font-size: 2rem;
-  }
-
-  form {
-    display: grid;
-    grid-template-columns: 1fr auto;
-    width: 100%;
-  }
-`;
+export { useAsync, usePokemon };

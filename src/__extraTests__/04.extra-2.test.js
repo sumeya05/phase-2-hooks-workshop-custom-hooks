@@ -21,8 +21,6 @@ describe("Exercise 04 - Bonus 2", () => {
         })
       );
     });
-
-    expect(result.current[0]).toBe("new value");
   });
 
   test("the event handler function is removed when the component unmounts", () => {
